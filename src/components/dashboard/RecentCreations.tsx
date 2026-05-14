@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import * as React from "react";
-import { Copy, Download, Eye, MoreVertical, Play } from "lucide-react";
+import { Copy, Download, Eye, MoreVertical, Pause, Play } from "lucide-react";
 import { recentCreations } from "@/data/dashboard";
 import { GlassPanel } from "@/components/common/GlassPanel";
 import { Button } from "@/components/ui/button";
@@ -32,8 +32,27 @@ export function RecentCreations({
   onDuplicate?: (creation: Creation) => void;
 }) {
   const [selectedVideo, setSelectedVideo] = React.useState<Creation | null>(null);
+  const [playing, setPlaying] = React.useState(false);
+  const [playProgress, setPlayProgress] = React.useState(0);
   const { toast } = useToast();
   const visibleCreations = expanded ? recentCreations : recentCreations.slice(0, 5);
+
+  React.useEffect(() => {
+    if (!playing) return;
+    const timer = window.setInterval(() => {
+      setPlayProgress((current) => {
+        const next = current >= 100 ? 0 : current + 2;
+        return next;
+      });
+    }, 90);
+    return () => window.clearInterval(timer);
+  }, [playing]);
+
+  const openPreview = (video: Creation) => {
+    setSelectedVideo(video);
+    setPlaying(true);
+    setPlayProgress(0);
+  };
 
   const downloadCreation = (video: Creation) => {
     const payload = {
@@ -53,25 +72,19 @@ export function RecentCreations({
     link.download = `${video.title.toLowerCase().replace(/\s+/g, "-")}.json`;
     link.click();
     URL.revokeObjectURL(url);
-    toast({
-      title: "Download started",
-      description: `${video.title} metadata has been exported.`,
-    });
+    toast({ title: "Download started", description: `${video.title} metadata has been exported.` });
   };
 
   const duplicateCreation = (video: Creation) => {
     onDuplicate?.(video);
-    toast({
-      title: "Prompt duplicated",
-      description: `${video.title} is ready in the generator.`,
-    });
+    toast({ title: "Prompt duplicated", description: `${video.title} is ready in the generator.` });
   };
 
   return (
     <>
       <GlassPanel className="h-full p-4 xl:p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-white">Recent Creations</h2>
+          <h2 className="text-lg font-semibold text-white">{expanded ? "All Recent Creations" : "Recent Creations"}</h2>
           <Button variant="outline" size="sm" className="text-violet-200" onClick={onViewAll}>
             View All
           </Button>
@@ -89,49 +102,30 @@ export function RecentCreations({
             >
               <button
                 className="relative h-20 overflow-hidden rounded-xl bg-white/5 text-left focus:outline-none focus:ring-2 focus:ring-sky-300"
-                onClick={() => setSelectedVideo(video)}
-                aria-label={`Preview ${video.title}`}
+                onClick={() => openPreview(video)}
+                aria-label={`Play ${video.title}`}
               >
-                <img
-                  src={video.image}
-                  alt={video.title}
-                  className="h-full w-full object-cover transition duration-500 group-hover:scale-110"
-                />
+                <img src={video.image} alt={video.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-110" />
                 <div className="absolute inset-0 grid place-items-center bg-black/0 transition group-hover:bg-black/35">
                   <Play className="h-8 w-8 scale-75 rounded-full bg-white/15 p-2 text-white opacity-0 backdrop-blur-md transition group-hover:scale-100 group-hover:opacity-100" />
                 </div>
-                <span className="absolute bottom-2 left-2 rounded-md bg-black/55 px-2 py-0.5 text-xs text-white backdrop-blur">
-                  {video.duration}
-                </span>
+                <span className="absolute bottom-2 left-2 rounded-md bg-black/55 px-2 py-0.5 text-xs text-white backdrop-blur">{video.duration}</span>
               </button>
 
               <div className="min-w-0 py-1">
                 <h3 className="truncate text-sm font-semibold text-white">{video.title}</h3>
-                <p className="mt-2 text-xs text-slate-400">
-                  {video.resolution} - {video.ratio}
-                </p>
+                <p className="mt-2 text-xs text-slate-400">{video.resolution} - {video.ratio}</p>
                 <p className="mt-4 text-xs text-slate-500">{video.createdAt}</p>
               </div>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400"><MoreVertical className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setSelectedVideo(video)}>
-                    <Eye className="h-4 w-4" />
-                    Preview
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => downloadCreation(video)}>
-                    <Download className="h-4 w-4" />
-                    Download
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => duplicateCreation(video)}>
-                    <Copy className="h-4 w-4" />
-                    Duplicate
-                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openPreview(video)}><Eye className="h-4 w-4" />Preview</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => downloadCreation(video)}><Download className="h-4 w-4" />Download</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => duplicateCreation(video)}><Copy className="h-4 w-4" />Duplicate</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </motion.article>
@@ -139,37 +133,38 @@ export function RecentCreations({
         </div>
       </GlassPanel>
 
-      <Dialog open={!!selectedVideo} onOpenChange={(open) => !open && setSelectedVideo(null)}>
+      <Dialog open={!!selectedVideo} onOpenChange={(open) => { if (!open) { setSelectedVideo(null); setPlaying(false); } }}>
         <DialogContent className="max-w-2xl">
           {selectedVideo ? (
             <>
               <DialogHeader>
                 <DialogTitle>{selectedVideo.title}</DialogTitle>
-                <DialogDescription>
-                  {selectedVideo.resolution} - {selectedVideo.ratio} - {selectedVideo.duration}
-                </DialogDescription>
+                <DialogDescription>{selectedVideo.resolution} - {selectedVideo.ratio} - {selectedVideo.duration}</DialogDescription>
               </DialogHeader>
               <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black">
-                <img
+                <motion.img
                   src={selectedVideo.image}
                   alt={selectedVideo.title}
                   className="h-72 w-full object-cover"
+                  animate={playing ? { scale: [1, 1.06, 1.02], x: [0, -10, 8, 0] } : { scale: 1, x: 0 }}
+                  transition={{ duration: 5, repeat: playing ? Infinity : 0, ease: "easeInOut" }}
                 />
-                <div className="absolute inset-0 grid place-items-center bg-black/25">
-                  <div className="grid h-16 w-16 place-items-center rounded-full bg-white/15 text-white backdrop-blur-xl">
-                    <Play className="h-8 w-8 fill-white" />
-                  </div>
+                <div className="absolute inset-0 bg-black/20" />
+                <button
+                  onClick={() => setPlaying(!playing)}
+                  className="absolute left-1/2 top-1/2 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white/15 text-white backdrop-blur-xl transition hover:bg-white/25"
+                  aria-label={playing ? "Pause video" : "Play video"}
+                >
+                  {playing ? <Pause className="h-8 w-8" /> : <Play className="h-8 w-8 fill-white" />}
+                </button>
+                <div className="absolute bottom-0 left-0 right-0 bg-black/40 p-3 backdrop-blur">
+                  <div className="mb-2 flex justify-between text-xs text-white"><span>{playing ? "Playing preview" : "Paused"}</span><span>{Math.round(playProgress)}%</span></div>
+                  <div className="h-1.5 rounded-full bg-white/20"><div className="h-full rounded-full bg-gradient-to-r from-sky-400 to-violet-500" style={{ width: `${playProgress}%` }} /></div>
                 </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Button variant="outline" onClick={() => downloadCreation(selectedVideo)}>
-                  <Download className="h-4 w-4" />
-                  Download
-                </Button>
-                <Button variant="gradient" onClick={() => duplicateCreation(selectedVideo)}>
-                  <Copy className="h-4 w-4" />
-                  Duplicate Prompt
-                </Button>
+                <Button variant="outline" onClick={() => downloadCreation(selectedVideo)}><Download className="h-4 w-4" />Download</Button>
+                <Button variant="gradient" onClick={() => duplicateCreation(selectedVideo)}><Copy className="h-4 w-4" />Duplicate Prompt</Button>
               </div>
             </>
           ) : null}

@@ -31,6 +31,11 @@ function SidebarContent({
 }: Omit<SidebarProps, "mobileOpen" | "setMobileOpen"> & {
   onNavigate?: () => void;
 }) {
+  const navigate = (item: string) => {
+    setActiveItem(item);
+    onNavigate?.();
+  };
+
   return (
     <TooltipProvider delayDuration={80}>
       <div className="flex h-full flex-col p-4">
@@ -57,10 +62,7 @@ function SidebarContent({
                 initial={{ opacity: 0, x: -12 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.025 }}
-                onClick={() => {
-                  setActiveItem(item.label);
-                  onNavigate?.();
-                }}
+                onClick={() => navigate(item.label)}
                 className={cn(
                   "group flex h-12 items-center gap-3 rounded-xl px-4 text-left text-sm text-slate-300 transition-all hover:bg-white/[0.08] hover:text-white hover:shadow-[0_0_24px_rgba(124,58,237,0.22)]",
                   active &&
@@ -98,7 +100,7 @@ function SidebarContent({
               <p className="relative mt-2 text-sm leading-6 text-violet-50/80">
                 Unlock more credits, faster generation and premium AI tools.
               </p>
-              <Button variant="gradient" className="relative mt-5 w-full">
+              <Button variant="gradient" className="relative mt-5 w-full" onClick={() => navigate("Billing")}>
                 Upgrade Now
               </Button>
             </motion.div>
